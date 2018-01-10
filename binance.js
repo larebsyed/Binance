@@ -47,7 +47,7 @@ function main() {
                 var percentage3m = calculate_change(selected_trades, 3).toFixed(2);
                 var user_stats = get_user_trading_stats(selected_pair());
                 this.cost_amount(user_stats.amount.toFixed(5));
-                this.cost_usd(user_stats.usd.toFixed(5));
+                this.cost_usd("$" + user_stats.usd.toFixed(5));
                 this.balance("$" + balance_to_usd().toFixed(5));
                 this.percentage1m(percentage1m + "%");
                 this.percentage2m(percentage2m + "%");
@@ -232,10 +232,12 @@ function main() {
         return balance * usd_rate;
     }
     function balance_to_btc() {
+        var balance = current_balance();
+        if(selected_pair().split('/')[0] == 'BTC')
+            return balance;
         var currency = get_currency();
         var btc_rate = $(".table.depthbg .ng-binding:first").text();
         btc_rate = parseFloat(btc_rate);
-        var balance = current_balance();
         return balance * btc_rate;
     }
     function current_balance() {

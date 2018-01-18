@@ -32,36 +32,46 @@ function main() {
         transaction_per_min: ko.observable(0),
         cost_amount : ko.observable(0),
         cost_usd : ko.observable(0),
+        autoUpdatePrice : ko.observable(false),
         update: function() {
-            this.all_balances = get_balances();
-            this.duration(this.duration() + 1);
-            if (_.isUndefined(this.all_trades[selected_pair()])) {
-                this.all_trades[selected_pair()] = [];
+            viewModel.all_balances = get_balances();
+            viewModel.duration(viewModel.duration() + 1);
+            if (_.isUndefined(viewModel.all_trades[selected_pair()])) {
+                viewModel.all_trades[selected_pair()] = [];
             }
-            var new_trades = add_new_trades(this.all_trades[selected_pair()]);
+            var new_trades = add_new_trades(viewModel.all_trades[selected_pair()]);
             if (new_trades.length > 0) {
-                this.all_trades[selected_pair()] = this.all_trades[selected_pair()].concat(new_trades);
-                var selected_trades = this.all_trades[selected_pair()];
+                viewModel.all_trades[selected_pair()] = viewModel.all_trades[selected_pair()].concat(new_trades);
+                var selected_trades = viewModel.all_trades[selected_pair()];
                 var percentage1m = calculate_change(selected_trades, 1).toFixed(2);
                 var percentage2m = calculate_change(selected_trades, 2).toFixed(2);
                 var percentage3m = calculate_change(selected_trades, 3).toFixed(2);
                 var user_stats = get_user_trading_stats(selected_pair());
-                this.cost_amount(user_stats.amount.toFixed(5));
-                this.cost_usd("$" + user_stats.usd.toFixed(5));
-                this.balance("$" + balance_to_usd().toFixed(5));
-                this.percentage1m(percentage1m + "%");
-                this.percentage2m(percentage2m + "%");
-                this.percentage3m(percentage3m + "%");
+                viewModel.cost_amount(user_stats.amount.toFixed(1));
+                viewModel.cost_usd("$" + user_stats.usd.toFixed(5));
+                viewModel.balance("$" + balance_to_usd().toFixed(5));
+                viewModel.percentage1m(percentage1m + "%");
+                viewModel.percentage2m(percentage2m + "%");
+                viewModel.percentage3m(percentage3m + "%");
                 var stats = get_trade_stats(selected_trades);
-                this.max_trade(stats.max_trade.toFixed(5));
-                this.min_trade(stats.min_trade.toFixed(5));
-                this.upper_limit(stats.upper_quartile.toFixed(5));
-                this.lower_limit(stats.lower_quartile.toFixed(5));
-                this.total_trades(selected_trades.length);
+                viewModel.max_trade(stats.max_trade.toFixed(5));
+                viewModel.min_trade(stats.min_trade.toFixed(5));
+                viewModel.upper_limit(stats.upper_quartile.toFixed(5));
+                viewModel.lower_limit(stats.lower_quartile.toFixed(5));
+                viewModel.total_trades(selected_trades.length);
                 times = _.pluck(selected_trades, "time");
                 var duration = _.max(times).diff(_.min(times), 'seconds');
-                this.duration(duration);
-                this.transaction_per_min((selected_trades.length / duration).toFixed(5));
+                viewModel.duration(duration);
+                viewModel.transaction_per_min((selected_trades.length / duration).toFixed(5));
+                if(viewModel.autoUpdatePrice())
+                {
+                    var latest_bid = parseFloat($("#bidScrollBox *[ng-click='trade(bid[0])']:first span:first").text());
+                    0.00000001
+                    $("#buyPrice").val(latest_bid+0.00000001);
+                     var latest_bid = parseFloat($("#askScrollBox *[ng-click='trade(ask[0])']:last span:first").text());
+                    0.00000001
+                    $("#sellPrice").val(latest_bid-0.00000001);
+                }
             }
         },
         reset: function() {
@@ -71,7 +81,7 @@ function main() {
     create_html();
     viewModel.all_trades[selected_pair()] = get_public_trades();
     setInterval(function() {
-        viewModel.update();
+        ko.tasks.schedule(viewModel.update);
     }, 1000);
 
     ko.applyBindings(viewModel, $("#stats")[0]);
@@ -89,6 +99,7 @@ function main() {
         rows.push(emmet.make("tr>th{Duration}+td+td[data-bind=text:duration]"));
         rows.push(emmet.make("tr>th{Current Balance}+td{}+td[data-bind=text:balance]"));
         rows.push(emmet.make("tr>th{Cost Amount/USD}+td[data-bind=text:cost_amount]+td[data-bind=text:cost_usd]"));
+        rows.push(emmet.make("tr>th{Auto Update Best Buy}+input[type=checkbox][data-bind=checked:autoUpdatePrice]"));
         _.invoke(rows, function(){
             $(table).append($(this));
         });
@@ -144,8 +155,10 @@ function main() {
             {
                 if(trade.side == "Sell")
                 {
-                    trade_balance -= parseFloat(trade.amount);
-                    trade_btc -= parseFloat(trade.total);
+                    if(trade.amount > trade_balance){
+                        trade_balance -= parseFloat(trade.amount);
+                        trade_btc -= parseFloat(trade.total);
+                    }
                 }
                 if(trade.side == "Buy")
                 {
